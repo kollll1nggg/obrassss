@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -9,6 +8,7 @@ import { Role, MediaItem } from './types';
 import HomePage from './pages/HomePage';
 import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
+import SearchResultsPage from './pages/SearchResultsPage'; // Import the new page
 
 // Components
 import Header from './components/Header';
@@ -46,6 +46,7 @@ const AppLayout: React.FC = () => {
                 <Routes>
                     <Route path="/" element={<HomePage dataVersion={dataVersion} />} />
                     <Route path="/profile/:userId" element={<ProfilePage dataVersion={dataVersion} setEditingMediaItem={setEditingMediaItem} />} />
+                    <Route path="/search" element={<SearchResultsPage setEditingMediaItem={setEditingMediaItem} />} />
                     <Route 
                       path="/admin" 
                       element={

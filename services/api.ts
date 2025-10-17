@@ -247,6 +247,69 @@ export const updateMediaItem = async (mediaId: string, newData: { url: string; d
     return updatedMediaItem;
 };
 
+// Search Function
+export const searchContent = async (query: string, currentUser: User | null): Promise<{ users: User[], albums: Album[], media: MediaItem[] }> => {
+    await simulateDelay(500);
+    const lowerCaseQuery = query.toLowerCase();
+
+    if (!lowerCaseQuery) {
+        return { users: [], albums: [], media: [] };
+    }
+
+    // 1. Search Users
+    const foundUsers = users.filter(u => u.name.toLowerCase().includes(lowerCaseQuery));
+
+    // 2. Search Albums and Media (respecting permissions)
+    const allVisibleAlbums = currentUser ? albums.filter(a => hasPermission(currentUser.role, a.permission)) : albums.filter(a => a.permission === Role.READER);
+    const allVisibleAlbumlessMedia = currentUser && hasPermission(currentUser.role, Role.MEMBER) ? albumlessMedia : [];
+    
+    const foundAlbums: Album[] = [];
+    const foundMedia: MediaItem[] = [];
+    const foundMediaIds = new Set<string>();
+
+    // Search within albums
+    for (const album of allVisibleAlbums) {
+        const albumTitleMatch = album.title.toLowerCase().includes(lowerCaseQuery);
+        const albumDescMatch = album.description.toLowerCase().includes(lowerCaseQuery);
+        
+        if (albumTitleMatch || albumDescMatch) {
+            foundAlbums.push(album);
+        }
+
+        for (const media of album.photos) {
+            if (foundMediaIds.has(media.id)) continue;
+            
+            const mediaDescMatch = media.description.toLowerCase().includes(lowerCaseQuery);
+            const mediaDateMatch = media.createdAt.toLowerCase().includes(lowerCaseQuery);
+
+            if (mediaDescMatch || mediaDateMatch) {
+                foundMedia.push(media);
+                foundMediaIds.add(media.id);
+            }
+        }
+    }
+
+    // Search within albumless media
+    for (const media of allVisibleAlbumlessMedia) {
+        if (foundMediaIds.has(media.id)) continue;
+        
+        const mediaDescMatch = media.description.toLowerCase().includes(lowerCaseQuery);
+        const mediaDateMatch = media.createdAt.toLowerCase().includes(lowerCaseQuery);
+
+        if (mediaDescMatch || mediaDateMatch) {
+            foundMedia.push(media);
+            foundMediaIds.add(media.id);
+        }
+    }
+
+    return {
+        users: foundUsers,
+        albums: foundAlbums,
+        media: foundMedia,
+    };
+};
+
+
 // Admin Functions
 
 export const updateUserRole = async (userId: string, newRole: Role): Promise<User | null> => {

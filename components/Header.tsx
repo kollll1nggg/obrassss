@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -21,6 +20,9 @@ const Header: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -40,6 +42,15 @@ const Header: React.FC = () => {
     logout();
     setProfileDropdownOpen(false);
     navigate('/');
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      // Optional: Clear search bar after search
+      // setSearchQuery('');
+    }
   };
 
   useEffect(() => {
@@ -67,13 +78,17 @@ const Header: React.FC = () => {
           </Link>
 
           {/* Search Bar (Desktop) */}
-          <div className="hidden sm:flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg px-3">
-            <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
-            <input 
-              type="text" 
-              placeholder="Buscar..."
-              className="bg-transparent py-2 px-2 text-sm focus:outline-none"
-            />
+          <div className="hidden sm:flex items-center">
+            <form onSubmit={handleSearchSubmit} className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg px-3">
+              <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+              <input 
+                type="text" 
+                placeholder="Buscar..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-transparent py-2 px-2 text-sm focus:outline-none w-full"
+              />
+            </form>
           </div>
 
           {/* Actions */}
