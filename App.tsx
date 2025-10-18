@@ -24,6 +24,7 @@ import FloatingActionButton from './components/FloatingActionButton';
 import UploadModal from './components/UploadModal';
 import StoryUploadModal from './components/StoryUploadModal';
 import PhotoEditorModal from './components/PhotoEditorModal';
+import BottomNavBar from './components/BottomNavBar';
 
 const AppLayout: React.FC = () => {
     const { user } = useAuth();
@@ -43,13 +44,18 @@ const AppLayout: React.FC = () => {
         setEditingMediaItem(firstImage);
       }
     };
+    
+    const handleAddClick = () => setIsUploadModalOpen(true);
 
     return (
-      <div className="flex min-h-screen bg-gray-50 dark:bg-black text-gray-900 dark:text-white">
+      <div className="bg-gray-50 dark:bg-black text-gray-900 dark:text-white min-h-screen">
+        {/* Fixed Position Elements - outside of the scrollable container */}
         <Sidebar />
-        <div className="flex-1 w-full lg:pl-64">
-            <Header />
-            <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-20">
+        <Header />
+
+        {/* Main scrollable content area */}
+        <div className="lg:pl-64">
+            <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-20 md:pb-8">
                 <Routes>
                     <Route path="/" element={<HomePage dataVersion={dataVersion} setEditingMediaItem={setEditingMediaItem} />} />
                     <Route path="/profile/:userId" element={<ProfilePage setEditingMediaItem={setEditingMediaItem} />} />
@@ -70,13 +76,22 @@ const AppLayout: React.FC = () => {
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
             </main>
-            {user && location.pathname === '/' && (
-                <FloatingActionButton
-                    onAddPhotoClick={() => setIsUploadModalOpen(true)}
-                    onAddStoryClick={() => setIsStoryUploadModalOpen(true)}
-                />
-            )}
         </div>
+        
+        {/* Other Fixed Elements */}
+        {user && (
+            <BottomNavBar onAddClick={handleAddClick} />
+        )}
+        
+        {user && location.pathname === '/' && (
+            <FloatingActionButton
+                onAddPhotoClick={() => setIsUploadModalOpen(true)}
+                onAddStoryClick={() => setIsStoryUploadModalOpen(true)}
+                className="hidden md:flex"
+            />
+        )}
+
+        {/* Modals */}
         {isUploadModalOpen && user && (
             <UploadModal
                 currentUser={user}

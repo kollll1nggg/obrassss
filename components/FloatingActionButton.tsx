@@ -4,11 +4,13 @@ import { PlusIcon, SquaresPlusIcon, PlusCircleIcon } from './icons/Icons';
 interface FloatingActionButtonProps {
   onAddPhotoClick: () => void;
   onAddStoryClick: () => void;
+  className?: string;
 }
 
 const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ 
   onAddPhotoClick,
   onAddStoryClick,
+  className = '',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -38,7 +40,7 @@ const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
   ];
 
   return (
-    <div ref={menuRef} className="fixed bottom-6 right-6 z-40">
+    <div ref={menuRef} className={`fixed bottom-6 right-6 z-40 ${className}`}>
       <div className={`flex flex-col items-center space-y-3 transition-all duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
         {menuItems.map((item, index) => (
            <div key={item.label} className="flex items-center space-x-3">

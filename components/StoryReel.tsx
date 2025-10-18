@@ -28,13 +28,11 @@ const StoryReel: React.FC<StoryReelProps> = ({ storiesByUser, users, onUserClick
             <div key={userId} className="flex flex-col items-center space-y-1 flex-shrink-0">
               <button onClick={() => onUserClick(userId)} className="focus:outline-none">
                 <div className="h-16 w-16 rounded-full p-0.5 bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500">
-                  <div className="bg-white dark:bg-gray-900 p-0.5 rounded-full">
-                    <img
-                      src={user.avatar}
-                      alt={user.name}
-                      className="h-full w-full rounded-full object-cover"
-                    />
-                  </div>
+                  <img
+                    src={user.avatar}
+                    alt={user.name}
+                    className="h-full w-full rounded-full object-cover border-2 border-white dark:border-gray-900"
+                  />
                 </div>
               </button>
               <p className="text-xs text-center truncate w-16">{user.name}</p>
