@@ -104,7 +104,12 @@ export const CalendarDaysIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props)
 );
 
 export const CakeIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
-  <Icon {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M21 11.25v8.25a2.25 2.25 0 01-2.25 2.25H5.25a2.25 2.25 0 01-2.25-2.25v-8.25a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 11.25z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 11.25v-9m0 0l-3 3m3-3l3 3m-3 3.75l-3 3m3-3l3 3" /></Icon>
+    <Icon {...props}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 20h18v-8a3 3 0 0 0 -3 -3h-12a3 3 0 0 0 -3 3v8z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 14.803c.312 .135 .654 .204 1 .197a2.4 2.4 0 0 0 2 -1a2.4 2.4 0 0 1 2 -1a2.4 2.4 0 0 1 2 1a2.4 2.4 0 0 0 2 1a2.4 2.4 0 0 0 2 -1a2.4 2.4 0 0 1 2 -1a2.4 2.4 0 0 1 2 1a2.4 2.4 0 0 0 2 1c.346 .007 .688 -.062 1 -.197" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v4" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M10 7l1.5 -2l1.5 2" />
+    </Icon>
 );
 
 export const DiscIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (

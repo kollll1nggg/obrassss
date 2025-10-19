@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LayoutDashboardIcon, CalendarDaysIcon, CakeIcon, DiscIcon } from './icons/Icons';
+import { LayoutDashboardIcon, CalendarDaysIcon, CakeIcon } from './icons/Icons';
 
 const Sidebar: React.FC = () => {
     const { user } = useAuth();
@@ -10,7 +10,6 @@ const Sidebar: React.FC = () => {
         { to: '/', text: 'Feed', icon: LayoutDashboardIcon, isPublic: true },
         { to: '/events', text: 'Eventos', icon: CalendarDaysIcon, isPublic: true },
         { to: '/birthdays', text: 'Aniversários', icon: CakeIcon, isPublic: false },
-        { to: '/music', text: 'Música', icon: DiscIcon, isPublic: true },
     ];
 
     const NavItem: React.FC<{ to: string; text: string; icon: React.FC<React.SVGProps<SVGSVGElement>>; isPublic: boolean; }> = ({ to, text, icon: Icon, isPublic }) => {
