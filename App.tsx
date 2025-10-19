@@ -23,7 +23,6 @@ import UploadModal from './components/UploadModal';
 import StoryUploadModal from './components/StoryUploadModal';
 import PhotoEditorModal from './components/PhotoEditorModal';
 import BottomNavBar from './components/BottomNavBar';
-import GlobalMusicPlayer from './components/GlobalMusicPlayer';
 
 const AppLayout: React.FC = () => {
     const { user } = useAuth();
@@ -73,7 +72,6 @@ const AppLayout: React.FC = () => {
             </main>
         </div>
         
-        <GlobalMusicPlayer />
         <BottomNavBar onAddClick={handleAddClick} />
         
         {user && location.pathname === '/' && (

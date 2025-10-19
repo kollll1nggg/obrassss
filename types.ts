@@ -1,5 +1,3 @@
-
-
 export enum Role {
   ADMIN_MASTER = 'ADMIN_MASTER',
   ADMIN = 'ADMIN',
@@ -66,15 +64,4 @@ export interface MusicTrack {
   artist: string;
   url: string;
   duration: number; // in seconds
-}
-
-export interface GlobalMusicState {
-  currentTrack: MusicTrack | null;
-  isPlaying: boolean;
-}
-
-// Add MusicPlayerEventDetail for communication between DJPlayer and GlobalMusicPlayer
-export interface MusicPlayerEventDetail {
-  action: 'play' | 'pause' | 'setTrack' | 'stop';
-  track?: MusicTrack;
 }

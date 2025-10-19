@@ -6,7 +6,7 @@ import {
     events as mockEvents,
     musicTracks as mockMusicTracks
 } from '../data/mockData';
-import { User, Role, Album, MediaItem, Story, EventItem, MusicTrack, GlobalMusicState } from '../types';
+import { User, Role, Album, MediaItem, Story, EventItem, MusicTrack } from '../types';
 
 // Make the mock data mutable for the simulation
 let users = [...mockUsers];
@@ -15,10 +15,7 @@ let mediaItems = [...mockMediaItems];
 let stories = [...mockStories];
 let events = [...mockEvents];
 let musicTracks = [...mockMusicTracks];
-let globalMusicState: GlobalMusicState = {
-    currentTrack: null,
-    isPlaying: false
-};
+
 
 // Helper function to generate unique IDs
 const generateId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -299,18 +296,4 @@ export const deleteMusicTrack = async (trackId: string): Promise<boolean> => {
     const initialLength = musicTracks.length;
     musicTracks = musicTracks.filter(t => t.id !== trackId);
     return musicTracks.length < initialLength;
-};
-
-export const getGlobalMusicState = async (): Promise<GlobalMusicState> => {
-    return { ...globalMusicState };
-};
-
-export const updateGlobalMusicState = async (newState: Partial<GlobalMusicState>): Promise<GlobalMusicState> => {
-    if ('currentTrack' in newState) {
-        globalMusicState.currentTrack = newState.currentTrack;
-    }
-    if ('isPlaying' in newState) {
-        globalMusicState.isPlaying = newState.isPlaying;
-    }
-    return { ...globalMusicState };
 };
