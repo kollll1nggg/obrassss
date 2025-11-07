@@ -142,18 +142,45 @@ export const getContentForUserProfile = async (userId: string, currentUser: User
 };
 
 export const addMediaItems = async (files: File[], uploadedBy: User, albumId?: string): Promise<MediaItem[]> => {
-    const newMediaItems: MediaItem[] = files.map(file => ({
-        id: generateId('media'),
-        albumId: albumId || undefined,
-        url: URL.createObjectURL(file), // Mock URL
-        type: file.type.startsWith('video/') ? 'video' : 'image',
-        description: '',
-        uploadedBy: uploadedBy.id,
-        createdAt: new Date().toISOString(),
-        taggedUsers: [],
-    }));
-    mediaItems.unshift(...newMediaItems);
-    return newMediaItems;
+    // Try to upload to a local backend that saves files to /dados on disk.
+    try {
+        const serverUrl = 'http://localhost:4000/api/upload/media';
+        const form = new FormData();
+        files.forEach(f => form.append('files', f));
+        if (albumId) form.append('albumId', albumId);
+        form.append('uploadedBy', uploadedBy.id);
+
+        const resp = await fetch(serverUrl, { method: 'POST', body: form });
+        if (!resp.ok) throw new Error('Upload failed');
+        const data = await resp.json();
+
+        const newMediaItems: MediaItem[] = data.files.map((f: any) => ({
+            id: generateId('media'),
+            albumId: albumId || undefined,
+            url: f.url.startsWith('http') ? f.url : `http://localhost:4000${f.url}`,
+            type: f.type,
+            description: '',
+            uploadedBy: uploadedBy.id,
+            createdAt: new Date().toISOString(),
+            taggedUsers: [],
+        }));
+        mediaItems.unshift(...newMediaItems);
+        return newMediaItems;
+    } catch (e) {
+        // Fallback to previous mock behavior if server is not available
+        const newMediaItems: MediaItem[] = files.map(file => ({
+            id: generateId('media'),
+            albumId: albumId || undefined,
+            url: URL.createObjectURL(file), // Mock URL
+            type: file.type.startsWith('video/') ? 'video' : 'image',
+            description: '',
+            uploadedBy: uploadedBy.id,
+            createdAt: new Date().toISOString(),
+            taggedUsers: [],
+        }));
+        mediaItems.unshift(...newMediaItems);
+        return newMediaItems;
+    }
 };
 
 export const updateMediaItem = async (mediaId: string, updates: Partial<MediaItem>): Promise<MediaItem | null> => {
@@ -196,16 +223,36 @@ export const getStories = async (): Promise<Story[]> => {
 
 export const addStory = async (userId: string, file: File): Promise<Story> => {
     const now = new Date();
-    const newStory: Story = {
-        id: generateId('story'),
-        userId,
-        filePath: URL.createObjectURL(file),
-        type: file.type.startsWith('video/') ? 'video' : 'image',
-        createdAt: now.toISOString(),
-        expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
-    };
-    stories.unshift(newStory);
-    return newStory;
+    // Try to upload story to backend
+    try {
+        const form = new FormData();
+        form.append('file', file);
+        form.append('userId', userId);
+        const resp = await fetch('http://localhost:4000/api/upload/story', { method: 'POST', body: form });
+        if (!resp.ok) throw new Error('Story upload failed');
+        const data = await resp.json();
+        const newStory: Story = {
+            id: generateId('story'),
+            userId,
+            filePath: data.file.url.startsWith('http') ? data.file.url : `http://localhost:4000${data.file.url}`,
+            type: data.file.type,
+            createdAt: now.toISOString(),
+            expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+        };
+        stories.unshift(newStory);
+        return newStory;
+    } catch (e) {
+        const newStory: Story = {
+            id: generateId('story'),
+            userId,
+            filePath: URL.createObjectURL(file),
+            type: file.type.startsWith('video/') ? 'video' : 'image',
+            createdAt: now.toISOString(),
+            expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+        };
+        stories.unshift(newStory);
+        return newStory;
+    }
 };
 
 // --- Events ---
@@ -281,16 +328,34 @@ export const getMusicTracks = async (): Promise<MusicTrack[]> => {
 };
 
 export const addMusicTrack = async (file: File): Promise<MusicTrack> => {
-    const newTrack: MusicTrack = {
-        id: generateId('music'),
-        title: file.name.replace(/\.mp3$/i, ''),
-        artist: 'Desconhecido',
-        url: URL.createObjectURL(file),
-        duration: 0,
-        hotcues: [], 
-    };
-    musicTracks.push(newTrack);
-    return newTrack;
+    try {
+        const form = new FormData();
+        form.append('file', file);
+        const resp = await fetch('http://localhost:4000/api/upload/music', { method: 'POST', body: form });
+        if (!resp.ok) throw new Error('Music upload failed');
+        const data = await resp.json();
+        const newTrack: MusicTrack = {
+            id: generateId('music'),
+            title: data.file.originalName.replace(/\.mp3$/i, ''),
+            artist: 'Desconhecido',
+            url: data.file.url.startsWith('http') ? data.file.url : `http://localhost:4000${data.file.url}`,
+            duration: data.file.duration || 0,
+            hotcues: [],
+        };
+        musicTracks.push(newTrack);
+        return newTrack;
+    } catch (e) {
+        const newTrack: MusicTrack = {
+            id: generateId('music'),
+            title: file.name.replace(/\.mp3$/i, ''),
+            artist: 'Desconhecido',
+            url: URL.createObjectURL(file),
+            duration: 0,
+            hotcues: [],
+        };
+        musicTracks.push(newTrack);
+        return newTrack;
+    }
 };
 
 export const deleteMusicTrack = async (trackId: string): Promise<boolean> => {

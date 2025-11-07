@@ -1,4 +1,14 @@
-# Logs
+/dados/*
+!/dados/.gitkeep
+!/dados/photos/.gitkeep
+!/dados/videos/.gitkeep
+!/dados/others/.gitkeep
+!/dados/media.json
+
+node_modules/
+dist/
+/.idea
+.DS_Store# Logs
 logs
 *.log
 npm-debug.log*
