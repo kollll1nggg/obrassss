@@ -43,6 +43,9 @@ const upload = multer({ storage });
 
 app.use('/uploads', express.static(DATA_DIR));
 
+// Healthcheck for platforms (Railway etc.) to verify the process is up
+app.get('/health', (req, res) => res.json({ ok: true, uptime: process.uptime() }));
+
 app.post('/api/upload/media', upload.array('files'), (req, res) => {
   const files = (req.files || []).map(f => {
     const rel = path.relative(process.cwd(), f.path).split(path.sep).join('/');
@@ -101,10 +104,21 @@ if (fs.existsSync(DIST_DIR)) {
   app.use(express.static(DIST_DIR));
 
   // Ensure that API and uploads routes have priority; for other paths return index.html
-  app.get('*', (req, res, next) => {
+  // Use '/*' instead of '*' to avoid path-to-regexp parsing issues on some platforms
+  app.get('/*', (req, res, next) => {
     if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) return next();
     res.sendFile(path.join(DIST_DIR, 'index.html'));
   });
 }
+
+// Global error handlers to make crashes visible in logs
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  // exit(1) could be used to let the process manager restart the app
+});
 
 app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`));
