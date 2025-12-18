@@ -104,10 +104,14 @@ if (fs.existsSync(DIST_DIR)) {
   app.use(express.static(DIST_DIR));
 
   // Ensure that API and uploads routes have priority; for other paths return index.html
-  // Use '/*' instead of '*' to avoid path-to-regexp parsing issues on some platforms
-  app.get('/*', (req, res, next) => {
+  // Serve index.html for non-API routes using a middleware (avoids path-to-regexp parsing issues)
+  app.use((req, res, next) => {
     if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) return next();
-    res.sendFile(path.join(DIST_DIR, 'index.html'));
+    // For GET requests (and navigation), return index.html so the SPA can handle routing
+    if (req.method === 'GET') {
+      return res.sendFile(path.join(DIST_DIR, 'index.html'));
+    }
+    return next();
   });
 }
 
