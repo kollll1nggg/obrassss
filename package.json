@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "preinstall": "npm i patch-package@^6.6.0 --no-audit --no-save",
+  "preinstall": "npm i patch-package --no-audit --no-save",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
@@ -14,7 +14,7 @@
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "multer": "^2.0.2",
-    "patch-package": "^6.6.0",
+    
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-image-crop": "^11.0.10",
