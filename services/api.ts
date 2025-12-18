@@ -100,9 +100,34 @@ export const deleteUser = async (userId: string): Promise<boolean> => {
 
 // --- Media, Albums & Feed ---
 export const getMediaForFeed = async (currentUser: User | null): Promise<MediaItem[]> => {
+    // Try to fetch persisted media from the backend. If the backend is available
+    // use that as the source of truth; otherwise fall back to the in-memory mock.
+    try {
+        if (API_BASE) {
+            const resp = await fetch(`${API_BASE}/media/list`);
+            if (resp.ok) {
+                const data = await resp.json();
+                const remote: MediaItem[] = (data.media || []).map((m: any) => ({
+                    id: m.id || generateId('media'),
+                    albumId: m.albumId || undefined,
+                    url: m.url && m.url.startsWith('http') ? m.url : (API_ORIGIN ? `${API_ORIGIN}${m.url}` : m.url),
+                    type: m.type || (m.url && /\.(mp4|webm|ogg|mov)$/i.test(m.url) ? 'video' : 'image'),
+                    description: m.description || '',
+                    uploadedBy: m.uploadedBy || 'server',
+                    createdAt: m.uploadedAt || new Date().toISOString(),
+                    taggedUsers: m.taggedUsers || [],
+                }));
+                // replace in-memory mediaItems so subsequent calls use the persisted set
+                mediaItems = [...remote];
+            }
+        }
+    } catch (e) {
+        // ignore and use in-memory mock
+    }
+
     const visibleAlbums = await getAllVisibleAlbums(currentUser);
     const visibleAlbumIds = new Set(visibleAlbums.map(a => a.id));
-    
+
     const feedMedia = mediaItems.filter(item => {
         // Albumless photos are visible to all approved users
         if (!item.albumId) {
