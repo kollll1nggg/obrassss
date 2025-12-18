@@ -116,7 +116,8 @@ app.post('/api/upload/media', upload.fields([{ name: 'files' }, { name: 'file', 
         // f.path is available for diskStorage; for memoryStorage it will be undefined
         const savedPath = f.path || path.join(PHOTOS_DIR, f.filename || '');
         const type = (f.mimetype || '').startsWith('video/') ? 'video' : ((f.mimetype || '').startsWith('image/') ? 'image' : 'other');
-        const rel = f.path ? path.relative(process.cwd(), f.path).split(path.sep).join('/') : path.relative(DATA_DIR, savedPath).split(path.sep).join('/');
+        // Use DATA_DIR as the base so the URL is /uploads/<relative path under DATA_DIR>
+        const rel = path.relative(DATA_DIR, savedPath).split(path.sep).join('/');
         return { filename: f.filename || (f.originalname || 'unknown'), url: `/uploads/${rel}`, type };
       });
     }
