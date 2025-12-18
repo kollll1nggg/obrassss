@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -26,62 +27,134 @@ ensureDir(OTHERS_DIR);
 
 if (!fs.existsSync(MEDIA_JSON)) fs.writeFileSync(MEDIA_JSON, JSON.stringify([]));
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const type = file.mimetype;
-    if (type.startsWith('image/')) cb(null, PHOTOS_DIR);
-    else if (type.startsWith('video/')) cb(null, VIDEOS_DIR);
-    else cb(null, OTHERS_DIR);
-  },
-  filename: function (req, file, cb) {
-    const safeName = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9.\-\_]/g, '_')}`;
-    cb(null, safeName);
-  }
-});
+// S3 configuration (optional). If these env vars are present we upload to S3 instead of disk.
+const S3_BUCKET = process.env.S3_BUCKET;
+const S3_REGION = process.env.AWS_REGION || process.env.S3_REGION;
+const S3_ENDPOINT = process.env.S3_ENDPOINT; // optional custom endpoint (Spaces, MinIO)
+const USE_S3 = !!(S3_BUCKET && S3_REGION);
 
-const upload = multer({ storage });
+let upload;
+if (USE_S3) {
+  const s3Client = new S3Client({ region: S3_REGION, endpoint: S3_ENDPOINT });
+  const memoryStorage = multer.memoryStorage();
+  upload = multer({ storage: memoryStorage });
+
+  // helper to upload a buffer to S3
+  async function uploadBufferToS3(buffer, originalName, mimeType) {
+    const safeName = `${Date.now()}-${originalName.replace(/[^a-zA-Z0-9.\-\_]/g, '_')}`;
+    const key = `${safeName}`;
+    const put = new PutObjectCommand({ Bucket: S3_BUCKET, Key: key, Body: buffer, ContentType: mimeType });
+    await s3Client.send(put);
+    // construct URL
+    let url;
+    if (S3_ENDPOINT) {
+      url = `${S3_ENDPOINT.replace(/\/$/, '')}/${key}`;
+    } else {
+      url = `https://${S3_BUCKET}.s3.${S3_REGION}.amazonaws.com/${key}`;
+    }
+    return { filename: safeName, url };
+  }
+} else {
+  const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+      const type = file.mimetype;
+      if (type.startsWith('image/')) cb(null, PHOTOS_DIR);
+      else if (type.startsWith('video/')) cb(null, VIDEOS_DIR);
+      else cb(null, OTHERS_DIR);
+    },
+    filename: function (req, file, cb) {
+      const safeName = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9.\-\_]/g, '_')}`;
+      cb(null, safeName);
+    }
+  });
+  upload = multer({ storage });
+}
 
 app.use('/uploads', express.static(DATA_DIR));
 
 // Healthcheck for platforms (Railway etc.) to verify the process is up
 app.get('/health', (req, res) => res.json({ ok: true, uptime: process.uptime() }));
 
-app.post('/api/upload/media', upload.array('files'), (req, res) => {
-  const files = (req.files || []).map(f => {
-    const rel = path.relative(process.cwd(), f.path).split(path.sep).join('/');
-    const type = f.mimetype.startsWith('video/') ? 'video' : (f.mimetype.startsWith('image/') ? 'image' : 'other');
-    return { filename: f.filename, url: `/uploads/${path.relative(DATA_DIR, f.path).split(path.sep).join('/')}`, type };
-  });
-  console.log('Received upload (media):', files.map(f => f.filename));
-
-  // Append metadata to media.json
+app.post('/api/upload/media', upload.array('files'), async (req, res) => {
   try {
-    const current = JSON.parse(fs.readFileSync(MEDIA_JSON, 'utf-8') || '[]');
-    const toPush = files.map(f => ({ id: `${Date.now()}-${Math.random().toString(36).slice(2,9)}`, ...f, uploadedAt: new Date().toISOString() }));
-    fs.writeFileSync(MEDIA_JSON, JSON.stringify([...toPush, ...current], null, 2));
-  } catch (e) {
-    console.error('Failed to write media.json', e);
+    let files = [];
+    if (USE_S3) {
+      // req.files contains buffers
+      const uploaded = [];
+      for (const f of (req.files || [])) {
+        const result = await uploadBufferToS3(f.buffer, f.originalname, f.mimetype);
+        const type = f.mimetype.startsWith('video/') ? 'video' : (f.mimetype.startsWith('image/') ? 'image' : 'other');
+        uploaded.push({ filename: result.filename, url: result.url, type });
+      }
+      files = uploaded;
+    } else {
+      files = (req.files || []).map(f => {
+        const rel = path.relative(process.cwd(), f.path).split(path.sep).join('/');
+        const type = f.mimetype.startsWith('video/') ? 'video' : (f.mimetype.startsWith('image/') ? 'image' : 'other');
+        return { filename: f.filename, url: `/uploads/${path.relative(DATA_DIR, f.path).split(path.sep).join('/')}`, type };
+      });
+    }
+
+    console.log('Received upload (media):', files.map(f => f.filename));
+
+    // Append metadata to media.json (best-effort; note: on Railway this file may be ephemeral)
+    try {
+      const current = JSON.parse(fs.readFileSync(MEDIA_JSON, 'utf-8') || '[]');
+      const toPush = files.map(f => ({ id: `${Date.now()}-${Math.random().toString(36).slice(2,9)}`, ...f, uploadedAt: new Date().toISOString() }));
+      fs.writeFileSync(MEDIA_JSON, JSON.stringify([...toPush, ...current], null, 2));
+    } catch (e) {
+      console.error('Failed to write media.json', e);
+    }
+
+    res.json({ files });
+  } catch (err) {
+    console.error('Upload failed', err);
+    res.status(500).json({ error: 'Upload failed' });
   }
-
-  res.json({ files });
 });
 
-app.post('/api/upload/story', upload.single('file'), (req, res) => {
-  const f = req.file;
-  if (!f) return res.status(400).json({ error: 'No file' });
-  const rel = path.relative(process.cwd(), f.path).split(path.sep).join('/');
-  const out = { filename: f.filename, url: `/uploads/${path.relative(DATA_DIR, f.path).split(path.sep).join('/')}`, type: f.mimetype.startsWith('video/') ? 'video' : 'image' };
-  console.log('Received upload (story):', out.filename);
-  res.json({ file: out });
+app.post('/api/upload/story', upload.single('file'), async (req, res) => {
+  try {
+    if (USE_S3) {
+      const f = req.file;
+      if (!f) return res.status(400).json({ error: 'No file' });
+      const result = await uploadBufferToS3(f.buffer, f.originalname, f.mimetype);
+      const out = { filename: result.filename, url: result.url, type: f.mimetype.startsWith('video/') ? 'video' : 'image' };
+      console.log('Received upload (story):', out.filename);
+      return res.json({ file: out });
+    }
+    const f = req.file;
+    if (!f) return res.status(400).json({ error: 'No file' });
+    const rel = path.relative(process.cwd(), f.path).split(path.sep).join('/');
+    const out = { filename: f.filename, url: `/uploads/${path.relative(DATA_DIR, f.path).split(path.sep).join('/')}`, type: f.mimetype.startsWith('video/') ? 'video' : 'image' };
+    console.log('Received upload (story):', out.filename);
+    res.json({ file: out });
+  } catch (err) {
+    console.error('Story upload failed', err);
+    res.status(500).json({ error: 'Upload failed' });
+  }
 });
 
-app.post('/api/upload/music', upload.single('file'), (req, res) => {
-  const f = req.file;
-  if (!f) return res.status(400).json({ error: 'No file' });
-  const rel = path.relative(process.cwd(), f.path).split(path.sep).join('/');
-  const out = { filename: f.filename, originalName: f.originalname, url: `/uploads/${path.relative(DATA_DIR, f.path).split(path.sep).join('/')}`, type: 'audio' };
-  console.log('Received upload (music):', out.filename);
-  res.json({ file: out });
+app.post('/api/upload/music', upload.single('file'), async (req, res) => {
+  try {
+    if (USE_S3) {
+      const f = req.file;
+      if (!f) return res.status(400).json({ error: 'No file' });
+      const result = await uploadBufferToS3(f.buffer, f.originalname, f.mimetype);
+      const out = { filename: result.filename, originalName: f.originalname, url: result.url, type: 'audio' };
+      console.log('Received upload (music):', out.filename);
+      return res.json({ file: out });
+    }
+    const f = req.file;
+    if (!f) return res.status(400).json({ error: 'No file' });
+    const rel = path.relative(process.cwd(), f.path).split(path.sep).join('/');
+    const out = { filename: f.filename, originalName: f.originalname, url: `/uploads/${path.relative(DATA_DIR, f.path).split(path.sep).join('/')}`, type: 'audio' };
+    console.log('Received upload (music):', out.filename);
+    res.json({ file: out });
+  } catch (err) {
+    console.error('Music upload failed', err);
+    res.status(500).json({ error: 'Upload failed' });
+  }
 });
 
 app.get('/api/media/list', (req, res) => {
@@ -92,6 +165,41 @@ app.get('/api/media/list', (req, res) => {
     res.status(500).json({ error: 'Failed to read media metadata' });
   }
 });
+
+// Debug endpoints - enabled only when DEBUG=true in env (safe for temporary diagnostics)
+if (process.env.DEBUG === 'true') {
+  app.get('/api/_debug/media-json', (req, res) => {
+    try {
+      const current = JSON.parse(fs.readFileSync(MEDIA_JSON, 'utf-8') || '[]');
+      res.json({ mediaJson: current });
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to read media.json', details: e.message });
+    }
+  });
+
+  app.get('/api/_debug/list-files', (req, res) => {
+    try {
+      const photos = fs.existsSync(PHOTOS_DIR) ? fs.readdirSync(PHOTOS_DIR) : [];
+      const videos = fs.existsSync(VIDEOS_DIR) ? fs.readdirSync(VIDEOS_DIR) : [];
+      const others = fs.existsSync(OTHERS_DIR) ? fs.readdirSync(OTHERS_DIR) : [];
+      res.json({ photos, videos, others, dataDir: DATA_DIR });
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to list files', details: e.message });
+    }
+  });
+
+  app.get('/api/_debug/exists', (req, res) => {
+    const p = req.query.path;
+    if (!p) return res.status(400).json({ error: 'path query required' });
+    try {
+      const target = path.join(DATA_DIR, p);
+      const exists = fs.existsSync(target);
+      res.json({ path: p, target, exists });
+    } catch (e) {
+      res.status(500).json({ error: 'failed', details: e.message });
+    }
+  });
+}
 
 const PORT = process.env.PORT || 4000;
 // If running as an ES module, provide __dirname
