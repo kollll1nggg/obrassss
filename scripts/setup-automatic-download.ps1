@@ -23,8 +23,8 @@ Observações:
 param(
   [string]$TaskName = "ObrasDownload",
   [int]$IntervalMinutes = 1,
-  # Default updated to the new Railway service (includes port 8080 as configured)
-  [string]$BaseUrl = 'https://obrassss-production.up.railway.app:8080',
+  # Default updated to the new Railway service (use public domain, no port)
+  [string]$BaseUrl = 'https://obrassss-production.up.railway.app',
   [string]$OutDir = "C:\Users\$env:USERNAME\obras\dados",
   [switch]$RunAsSystem
 )

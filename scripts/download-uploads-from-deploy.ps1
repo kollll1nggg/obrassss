@@ -1,6 +1,6 @@
 param(
     # Updated default BaseUrl to the new Railway service
-    [string]$BaseUrl = "https://obrassss-production.up.railway.app:8080",
+    [string]$BaseUrl = "https://obrassss-production.up.railway.app",
     [string]$OutDir = "./dados"
 )
 
