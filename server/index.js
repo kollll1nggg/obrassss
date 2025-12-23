@@ -157,7 +157,7 @@ app.post('/api/upload/media', upload.fields([{ name: 'files' }, { name: 'file', 
 
     // Append metadata to media.json (best-effort; note: on Railway this file may be ephemeral)
     try {
-      const current = JSON.parse(fs.readFileSync(MEDIA_JSON, 'utf-8') || '[]');
+      const current = readJson(MEDIA_JSON) || [];
 
       // Read optional metadata fields from the request body (multer will populate req.body for text fields)
       const bodyAlbumId = req.body && req.body.albumId ? req.body.albumId : undefined;
@@ -169,7 +169,7 @@ app.post('/api/upload/media', upload.fields([{ name: 'files' }, { name: 'file', 
 
       const toPush = files.map(f => ({
         id: `${Date.now()}-${Math.random().toString(36).slice(2,9)}`,
-        filename: f.filename || f.filename,
+        filename: f.filename || f.originalname || 'file',
         url: f.url,
         type: f.type,
         albumId: bodyAlbumId,
@@ -178,9 +178,9 @@ app.post('/api/upload/media', upload.fields([{ name: 'files' }, { name: 'file', 
         uploadedAt: bodyUploadedAt || new Date().toISOString()
       }));
 
-      fs.writeFileSync(MEDIA_JSON, JSON.stringify([...toPush, ...current], null, 2));
+      writeJson(MEDIA_JSON, [...toPush, ...current]);
     } catch (e) {
-      console.error('Failed to write media.json', e);
+      console.error('Failed to write media.json', e && e.message ? e.message : e);
     }
 
     res.json({ files });
