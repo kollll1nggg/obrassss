@@ -49,7 +49,8 @@ foreach ($file in $allToUpload) {
         Write-Host "-> Uploaded: $name"
         $summary.uploaded++
     } catch {
-        Write-Warning "Failed to upload $name: $_"
+        # Avoid PowerShell parsing errors when interpolating $_ with ':' characters
+        Write-Warning ("Failed to upload {0}: {1}" -f $name, $_)
         $summary.failed++
     }
 
