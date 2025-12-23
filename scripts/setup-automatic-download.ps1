@@ -22,10 +22,11 @@ Observações:
 
 param(
   [string]$TaskName = "ObrasDownload",
-  [int]$IntervalMinutes = 5,
+  [int]$IntervalMinutes = 1,
   # Default updated to the new Railway service (includes port 8080 as configured)
   [string]$BaseUrl = 'https://obrassss-production.up.railway.app:8080',
-  [string]$OutDir = "C:\Users\$env:USERNAME\obras\dados"
+  [string]$OutDir = "C:\Users\$env:USERNAME\obras\dados",
+  [switch]$RunAsSystem
 )
 
 
@@ -50,6 +51,8 @@ Write-Host "Downloader script: $scriptPath"
 # through schtasks and cmd.exe when paths/URLs contain spaces.
 $action = "powershell -ExecutionPolicy Bypass -NoProfile -File `"$scriptPath`" -BaseUrl `"$BaseUrl`" -OutDir `"$OutDir`""
 
+$runAsSystemFlag = $RunAsSystem.IsPresent
+
 # Check if task exists
 $exists = & schtasks /Query /TN $TaskName 2>&1
 if ($LASTEXITCODE -eq 0) {
@@ -58,7 +61,14 @@ if ($LASTEXITCODE -eq 0) {
 }
 
 Write-Host "Creating task..."
+
+# Build create arguments; if RunAsSystem is requested, create task to run as SYSTEM (no password)
 $createCmd = @('/Create','/SC','MINUTE','/MO',$IntervalMinutes.ToString(),'/TN',$TaskName,'/TR',$action,'/F')
+if ($runAsSystemFlag) {
+  # Use SYSTEM account so the task runs even when no user is logged on
+  $createCmd += @('/RU','SYSTEM')
+}
+
 Write-Host "schtasks $($createCmd -join ' ')"
 & schtasks @createCmd
 
