@@ -44,6 +44,20 @@ const canView = (user: User | null, album: Album): boolean => {
 
 // --- Auth ---
 export const login = async (name: string, pass: string): Promise<User | null> => {
+    // Try backend auth when available
+    try {
+        if (API_BASE) {
+            const resp = await fetch(`${API_BASE}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+            if (resp.ok) {
+                const data = await resp.json();
+                const user: User = data.user;
+                return user;
+            }
+            return null;
+        }
+    } catch (e) {
+        // fallthrough to local mock
+    }
     const user = users.find(u => u.name.toLowerCase() === name.toLowerCase());
     if (user && user.status === 'APPROVED') {
         return user;
@@ -52,6 +66,16 @@ export const login = async (name: string, pass: string): Promise<User | null> =>
 };
 
 export const registerUser = async (name: string, pass: string): Promise<{ success: boolean; message: string; }> => {
+    // Try backend registration when available
+    try {
+        if (API_BASE) {
+            const resp = await fetch(`${API_BASE}/users/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email: `${name.toLowerCase().replace(/\s/g, '.')}@obras.com` }) });
+            const data = await resp.json();
+            return { success: !!data.success, message: data.message || (data.error || '') };
+        }
+    } catch (e) {
+        // fallback to mock
+    }
     if (users.some(u => u.name.toLowerCase() === name.toLowerCase())) {
         return { success: false, message: 'Nome de usuário já existe.' };
     }
@@ -69,6 +93,17 @@ export const registerUser = async (name: string, pass: string): Promise<{ succes
 
 // --- Users ---
 export const getMockUsers = async (): Promise<User[]> => {
+    try {
+        if (API_BASE) {
+            const resp = await fetch(`${API_BASE}/users`);
+            if (resp.ok) {
+                const data = await resp.json();
+                users = data.users || users;
+            }
+        }
+    } catch (e) {
+        // ignore
+    }
     return [...users];
 };
 
@@ -142,12 +177,38 @@ export const getMediaForFeed = async (currentUser: User | null): Promise<MediaIt
 
 
 export const getAllVisibleAlbums = async (currentUser: User | null): Promise<Album[]> => {
+    try {
+        if (API_BASE) {
+            const resp = await fetch(`${API_BASE}/albums`);
+            if (resp.ok) {
+                const data = await resp.json();
+                albums = (data.albums || []).map((a: any) => ({ ...a }));
+            }
+        }
+    } catch (e) {
+        // ignore and use in-memory
+    }
     return albums.filter(album => canView(currentUser, album))
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 };
 
 
 export const getAlbumById = async (albumId: string, currentUser: User | null): Promise<Album | null> => {
+    try {
+        if (API_BASE) {
+            const resp = await fetch(`${API_BASE}/albums/${albumId}`);
+            if (resp.ok) {
+                const data = await resp.json();
+                const alb = data.album;
+                if (!alb) return null;
+                // Map photos to MediaItem shape
+                const photos: MediaItem[] = (alb.photos || []).map((p: any) => ({ id: p.id || generateId('media'), albumId: p.albumId, url: p.url && p.url.startsWith('http') ? p.url : (API_ORIGIN ? `${API_ORIGIN}${p.url}` : p.url), type: p.type || 'image', description: p.description || '', uploadedBy: p.uploadedBy || 'server', createdAt: p.uploadedAt || new Date().toISOString(), taggedUsers: p.taggedUsers || [] }));
+                return { ...alb, photos } as Album;
+            }
+        }
+    } catch (e) {
+        // ignore
+    }
     const album = albums.find(a => a.id === albumId);
     if (!album || !canView(currentUser, album)) {
         return null;
@@ -231,6 +292,19 @@ export const deleteMediaItem = async (mediaId: string, albumId?: string | undefi
 };
 
 export const createAlbum = async (albumData: { title: string; description: string; permission: Role, isEventAlbum?: boolean }, createdBy: User): Promise<Album> => {
+    try {
+        if (API_BASE) {
+            const resp = await fetch(`${API_BASE}/albums`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...albumData, createdBy }) });
+            if (resp.ok) {
+                const data = await resp.json();
+                const a = data.album;
+                albums.unshift(a);
+                return a;
+            }
+        }
+    } catch (e) {
+        // fallback
+    }
     const newAlbum: Album = {
         id: generateId('album'),
         title: albumData.title,
@@ -290,6 +364,17 @@ export const addStory = async (userId: string, file: File): Promise<Story> => {
 
 // --- Events ---
 export const getEvents = async (): Promise<EventItem[]> => {
+    try {
+        if (API_BASE) {
+            const resp = await fetch(`${API_BASE}/events`);
+            if (resp.ok) {
+                const data = await resp.json();
+                events = data.events || events;
+            }
+        }
+    } catch (e) {
+        // ignore
+    }
     return [...events].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 };
 
@@ -297,6 +382,19 @@ export const createEvent = async (
     eventData: { title: string; location: string; date: string; albumId?: string; createAlbumAutomatically?: boolean }, 
     createdBy: User
 ): Promise<EventItem> => {
+    try {
+        if (API_BASE) {
+            const resp = await fetch(`${API_BASE}/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...eventData, createdBy }) });
+            if (resp.ok) {
+                const data = await resp.json();
+                const e = data.event;
+                events.unshift(e);
+                return e;
+            }
+        }
+    } catch (e) {
+        // fallback
+    }
     let finalAlbumId = eventData.albumId;
 
     if (eventData.createAlbumAutomatically) {
