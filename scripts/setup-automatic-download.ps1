@@ -23,17 +23,32 @@ Observações:
 param(
   [string]$TaskName = "ObrasDownload",
   [int]$IntervalMinutes = 5,
-  [string]$BaseUrl = 'https://obrasltda-production.up.railway.app',
+  # Default updated to the new Railway service (includes port 8080 as configured)
+  [string]$BaseUrl = 'https://obrassss-production.up.railway.app:8080',
   [string]$OutDir = "C:\Users\$env:USERNAME\obras\dados"
 )
 
-$scriptPath = (Resolve-Path -Path "./scripts/download-uploads-from-deploy.ps1").Path
+
+# Resolve the downloader script path relative to this script file so the setup works
+# even when the current working directory is different (e.g. C:\Windows\system32).
+$scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "download-uploads-from-deploy.ps1"
+if (-not (Test-Path $scriptPath)) {
+  # Fallback to previous relative location if not found at $PSScriptRoot
+  $scriptPath = (Resolve-Path -Path "./scripts/download-uploads-from-deploy.ps1" -ErrorAction SilentlyContinue).Path
+}
+if (-not $scriptPath) {
+  Write-Error "Downloader script not found. Expected at '$PSScriptRoot\\download-uploads-from-deploy.ps1' or './scripts/download-uploads-from-deploy.ps1'."
+  exit 1
+}
+$scriptPath = (Resolve-Path -Path $scriptPath).Path
 
 Write-Host "Setting up scheduled task '$TaskName' to run every $IntervalMinutes minutes."
 Write-Host "Downloader script: $scriptPath"
 
 # Build the action string (powershell invocation)
-$action = "powershell -ExecutionPolicy Bypass -NoProfile -File `"$scriptPath`" -BaseUrl '$BaseUrl' -OutDir '$OutDir'"
+# Use double quotes for the -BaseUrl and -OutDir values so they survive being passed
+# through schtasks and cmd.exe when paths/URLs contain spaces.
+$action = "powershell -ExecutionPolicy Bypass -NoProfile -File `"$scriptPath`" -BaseUrl `"$BaseUrl`" -OutDir `"$OutDir`""
 
 # Check if task exists
 $exists = & schtasks /Query /TN $TaskName 2>&1
