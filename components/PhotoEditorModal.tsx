@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { MediaItem, User, Album } from '../types';
 import { XMarkIcon } from './icons/Icons';
 import ReactCrop, { type Crop, centerCrop, makeAspectCrop } from 'react-image-crop';
-import { updateMediaItem, getMockUsers, getAlbumsForUser } from '../services/api';
+import { updateMediaItem, getMockUsers, getAlbumsForUser, getAlbumById } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
 interface PhotoEditorModalProps {
@@ -67,20 +67,37 @@ const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ photo, onClose, onS
   }, [photo.uploadedBy]);
 
   useEffect(() => {
-    const fetchAlbums = async () => {
-        // We need currentUser for permissions, and photo.uploadedBy to get the correct user's albums.
-        if (!currentUser || !photo.uploadedBy) return;
-        setIsLoadingAlbums(true);
+  const fetchAlbums = async () => {
+    // Use the current logged-in user's albums so they can assign photos to their own albums.
+    // If the photo already belongs to an album that isn't in the user's list, try to
+    // fetch that album and include it so the select shows the current value.
+    if (!currentUser) return;
+    setIsLoadingAlbums(true);
+    try {
+      const { albums } = await getAlbumsForUser(currentUser.id, currentUser);
+      let finalAlbums = albums;
+
+      // If the photo has an album but it's not in the current user's albums, try to fetch it
+      // (so the select can show the album the photo is currently in)
+      if (photo.albumId && !finalAlbums.some(a => a.id === photo.albumId)) {
         try {
-            // Fetch albums belonging to the person who uploaded the photo
-            const { albums } = await getAlbumsForUser(photo.uploadedBy, currentUser);
-            setUserAlbums(albums);
-        } catch (error) {
-            console.error("Failed to fetch user albums:", error);
-        } finally {
-            setIsLoadingAlbums(false);
+          const remoteAlbum = await getAlbumById(photo.albumId, currentUser);
+          if (remoteAlbum) {
+            finalAlbums = [remoteAlbum, ...finalAlbums];
+          }
+        } catch (err) {
+          // ignore — just proceed without including it
+          console.warn('Could not fetch photo album:', err);
         }
-    };
+      }
+
+      setUserAlbums(finalAlbums);
+    } catch (error) {
+      console.error("Failed to fetch user albums:", error);
+    } finally {
+      setIsLoadingAlbums(false);
+    }
+  };
 
     fetchAlbums();
   }, [currentUser, photo.uploadedBy]);
