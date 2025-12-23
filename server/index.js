@@ -15,9 +15,6 @@ const PHOTOS_DIR = path.join(DATA_DIR, 'photos');
 const VIDEOS_DIR = path.join(DATA_DIR, 'videos');
 const OTHERS_DIR = path.join(DATA_DIR, 'others');
 const MEDIA_JSON = path.join(DATA_DIR, 'media.json');
-const ALBUMS_JSON = path.join(DATA_DIR, 'albums.json');
-const EVENTS_JSON = path.join(DATA_DIR, 'events.json');
-const USERS_JSON = path.join(DATA_DIR, 'users.json');
 
 function ensureDir(d) {
   if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
@@ -28,9 +25,6 @@ ensureDir(VIDEOS_DIR);
 ensureDir(OTHERS_DIR);
 
 if (!fs.existsSync(MEDIA_JSON)) fs.writeFileSync(MEDIA_JSON, JSON.stringify([]));
-if (!fs.existsSync(ALBUMS_JSON)) fs.writeFileSync(ALBUMS_JSON, JSON.stringify([]));
-if (!fs.existsSync(EVENTS_JSON)) fs.writeFileSync(EVENTS_JSON, JSON.stringify([]));
-if (!fs.existsSync(USERS_JSON)) fs.writeFileSync(USERS_JSON, JSON.stringify([]));
 
 // S3 configuration (optional). If these env vars are present we upload to S3 instead of disk.
 const S3_BUCKET = process.env.S3_BUCKET;
@@ -198,176 +192,6 @@ app.get('/api/media/list', (req, res) => {
   } catch (e) {
     res.status(500).json({ error: 'Failed to read media metadata' });
   }
-});
-
-// Helper to read/write JSON files in DATA_DIR
-function readJsonSafe(p, fallback) {
-  try {
-    if (!fs.existsSync(p)) return fallback;
-    const raw = fs.readFileSync(p, 'utf-8') || '[]';
-    return JSON.parse(raw);
-  } catch (e) {
-    console.error('readJsonSafe failed for', p, e);
-    return fallback;
-  }
-}
-
-function writeJsonSafe(p, data) {
-  try {
-    fs.writeFileSync(p, JSON.stringify(data, null, 2));
-    return true;
-  } catch (e) {
-    console.error('writeJsonSafe failed for', p, e);
-    return false;
-  }
-}
-
-// --- Albums endpoints ---
-app.get('/api/albums', (req, res) => {
-  const albums = readJsonSafe(ALBUMS_JSON, []);
-  res.json({ albums });
-});
-
-app.get('/api/albums/:id', (req, res) => {
-  const id = req.params.id;
-  const albums = readJsonSafe(ALBUMS_JSON, []);
-  const media = readJsonSafe(MEDIA_JSON, []);
-  const album = albums.find(a => a.id === id);
-  if (!album) return res.status(404).json({ error: 'Not found' });
-  const photos = media.filter(m => m.albumId === id).sort((a,b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
-  res.json({ album: { ...album, photos } });
-});
-
-app.post('/api/albums', express.json(), (req, res) => {
-  const body = req.body || {};
-  if (!body.title) return res.status(400).json({ error: 'title required' });
-  const albums = readJsonSafe(ALBUMS_JSON, []);
-  const id = `${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
-  const newAlbum = {
-    id,
-    title: body.title,
-    description: body.description || '',
-    isEventAlbum: !!body.isEventAlbum,
-    coverPhoto: body.coverPhoto || null,
-    createdBy: (body.createdBy && body.createdBy.id) ? body.createdBy.id : (body.createdBy || 'unknown'),
-    createdAt: new Date().toISOString(),
-    permission: body.permission || 'MEMBER',
-    visibleTo: body.visibleTo || [],
-    taggedUsers: body.taggedUsers || [],
-  };
-  albums.unshift(newAlbum);
-  writeJsonSafe(ALBUMS_JSON, albums);
-  res.status(201).json({ album: newAlbum });
-});
-
-app.put('/api/albums/:id', express.json(), (req, res) => {
-  const id = req.params.id;
-  const albums = readJsonSafe(ALBUMS_JSON, []);
-  const idx = albums.findIndex(a => a.id === id);
-  if (idx === -1) return res.status(404).json({ error: 'Not found' });
-  albums[idx] = { ...albums[idx], ...req.body };
-  writeJsonSafe(ALBUMS_JSON, albums);
-  res.json({ album: albums[idx] });
-});
-
-app.delete('/api/albums/:id', (req, res) => {
-  const id = req.params.id;
-  let albums = readJsonSafe(ALBUMS_JSON, []);
-  const initial = albums.length;
-  albums = albums.filter(a => a.id !== id);
-  writeJsonSafe(ALBUMS_JSON, albums);
-  res.json({ deleted: albums.length < initial });
-});
-
-// --- Events endpoints ---
-app.get('/api/events', (req, res) => {
-  const events = readJsonSafe(EVENTS_JSON, []);
-  res.json({ events });
-});
-
-app.post('/api/events', express.json(), (req, res) => {
-  const body = req.body || {};
-  if (!body.title || !body.date) return res.status(400).json({ error: 'title and date required' });
-  const events = readJsonSafe(EVENTS_JSON, []);
-  let finalAlbumId = body.albumId;
-  // If requested, create album automatically
-  if (body.createAlbumAutomatically) {
-    const albums = readJsonSafe(ALBUMS_JSON, []);
-    const albumId = `${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
-    const newAlbum = {
-      id: albumId,
-      title: body.title,
-      description: `Álbum para o evento "${body.title}"`,
-      isEventAlbum: true,
-      coverPhoto: null,
-      createdBy: (body.createdBy && body.createdBy.id) ? body.createdBy.id : (body.createdBy || 'unknown'),
-      createdAt: new Date().toISOString(),
-      permission: 'MEMBER',
-      visibleTo: [],
-      taggedUsers: [],
-    };
-    albums.unshift(newAlbum);
-    writeJsonSafe(ALBUMS_JSON, albums);
-    finalAlbumId = albumId;
-  }
-
-  if (!finalAlbumId) return res.status(400).json({ error: 'event needs albumId' });
-
-  const id = `${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
-  const newEvent = { id, title: body.title, location: body.location || '', date: body.date, albumId: finalAlbumId };
-  events.unshift(newEvent);
-  writeJsonSafe(EVENTS_JSON, events);
-  res.status(201).json({ event: newEvent });
-});
-
-app.put('/api/events/:id', express.json(), (req, res) => {
-  const id = req.params.id;
-  const events = readJsonSafe(EVENTS_JSON, []);
-  const idx = events.findIndex(e => e.id === id);
-  if (idx === -1) return res.status(404).json({ error: 'Not found' });
-  events[idx] = { ...events[idx], ...req.body };
-  writeJsonSafe(EVENTS_JSON, events);
-  res.json({ event: events[idx] });
-});
-
-app.delete('/api/events/:id', (req, res) => {
-  const id = req.params.id;
-  let events = readJsonSafe(EVENTS_JSON, []);
-  const initial = events.length;
-  events = events.filter(e => e.id !== id);
-  writeJsonSafe(EVENTS_JSON, events);
-  res.json({ deleted: events.length < initial });
-});
-
-// --- Users endpoints ---
-app.get('/api/users', (req, res) => {
-  const users = readJsonSafe(USERS_JSON, []);
-  res.json({ users });
-});
-
-app.post('/api/users/register', express.json(), (req, res) => {
-  const body = req.body || {};
-  if (!body.name) return res.status(400).json({ success: false, message: 'name required' });
-  const users = readJsonSafe(USERS_JSON, []);
-  if (users.some(u => u.name && u.name.toLowerCase() === (body.name || '').toLowerCase())) {
-    return res.status(400).json({ success: false, message: 'Nome de usuário já existe.' });
-  }
-  const id = `${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
-  const newUser = { id, name: body.name, email: body.email || `${body.name.toLowerCase().replace(/\s/g,'.')}@obras.com`, avatar: body.avatar || null, role: body.role || 'READER', status: body.autoApprove ? 'APPROVED' : 'PENDING' };
-  users.unshift(newUser);
-  writeJsonSafe(USERS_JSON, users);
-  res.status(201).json({ success: true, message: 'Usuário registrado com sucesso.', user: newUser });
-});
-
-app.post('/api/auth/login', express.json(), (req, res) => {
-  const body = req.body || {};
-  if (!body.name) return res.status(400).json({ error: 'name required' });
-  const users = readJsonSafe(USERS_JSON, []);
-  const user = users.find(u => u.name && u.name.toLowerCase() === (body.name || '').toLowerCase());
-  if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-  if (user.status !== 'APPROVED') return res.status(403).json({ error: 'User not approved' });
-  // Return user object (no password handling in this simple impl)
-  res.json({ user });
 });
 
 // Debug endpoints - enabled only when DEBUG=true in env (safe for temporary diagnostics)

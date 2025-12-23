@@ -53,35 +53,3 @@ foreach ($m in $resp.media) {
 }
 
 Write-Host "Done. Files saved under: $OutDir"
-
-# --- Also fetch metadata JSONs (albums, events, users, media.json) and save locally ---
-try {
-    $metaDir = $OutDir
-    if (-not (Test-Path $metaDir)) { New-Item -ItemType Directory -Path $metaDir -Force | Out-Null }
-
-    $endpoints = @{
-        'albums' = "$($BaseUrl.TrimEnd('/'))/api/albums"
-        'events' = "$($BaseUrl.TrimEnd('/'))/api/events"
-        'users'  = "$($BaseUrl.TrimEnd('/'))/api/users"
-        'media'  = "$($BaseUrl.TrimEnd('/'))/api/media/list"
-    }
-
-    foreach ($k in $endpoints.Keys) {
-        $u = $endpoints[$k]
-        Write-Host "Fetching metadata $k from: $u"
-        try {
-            $r = Invoke-RestMethod -Uri $u -Method Get -ErrorAction Stop
-            $outPath = Join-Path $metaDir "$k.json"
-            # Normalize structure: if the endpoint returns { albums: [...] } write that array, else write the object
-            if ($r.$k) { $payload = $r.$k } else { $payload = $r }
-            $json = $payload | ConvertTo-Json -Depth 10
-            Set-Content -Path $outPath -Value $json -Encoding UTF8
-            Write-Host "Saved $k metadata -> $outPath"
-        } catch {
-            # Use explicit formatting to avoid PowerShell variable-parsing errors like `$k:` inside strings
-            Write-Warning ("Failed to fetch/save {0}: {1}" -f $k, $_)
-        }
-    }
-} catch {
-    Write-Warning ("Failed to sync metadata: {0}" -f $_)
-}
