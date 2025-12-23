@@ -45,6 +45,10 @@ async function uploadFile(localPath, albumId) {
   const form = new FormData();
   form.append('files', fs.createReadStream(localPath));
   if (albumId) form.append('albumId', albumId);
+  // preserve original metadata if present
+  if (m && m.uploadedAt) form.append('uploadedAt', m.uploadedAt);
+  if (m && m.uploadedBy) form.append('uploadedBy', m.uploadedBy);
+  if (m && m.taggedUsers) form.append('taggedUsers', JSON.stringify(m.taggedUsers));
 
   try {
     const resp = await fetch(`${BASE_URL}/api/upload/media`, { method: 'POST', body: form });
@@ -71,6 +75,25 @@ async function uploadFile(localPath, albumId) {
   }
 
   const report = { uploaded: [], errors: [] };
+
+  // If TARGET_FILE env var specified, upload only that file (search photos/videos/others)
+  const targetFile = process.env.TARGET_FILE;
+  if (targetFile) {
+    const possibleDirs = ['photos','videos','others'];
+    let found = false;
+    for (const d of possibleDirs) {
+      const p = path.join(DATA_DIR, d, targetFile);
+      if (fs.existsSync(p)) {
+        console.log('Uploading target file', p);
+        const res = await uploadFile(p, undefined);
+        if (res.ok) console.log('Uploaded target file', res.body);
+        else console.warn('Failed target upload', res);
+        found = true;
+        break;
+      }
+    }
+    if (!found) console.warn('TARGET_FILE not found in dados folders:', targetFile);
+  }
 
   for (const m of media) {
     const filename = m.filename || (m.url && path.basename(m.url));

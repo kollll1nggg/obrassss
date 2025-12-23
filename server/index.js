@@ -158,7 +158,26 @@ app.post('/api/upload/media', upload.fields([{ name: 'files' }, { name: 'file', 
     // Append metadata to media.json (best-effort; note: on Railway this file may be ephemeral)
     try {
       const current = JSON.parse(fs.readFileSync(MEDIA_JSON, 'utf-8') || '[]');
-      const toPush = files.map(f => ({ id: `${Date.now()}-${Math.random().toString(36).slice(2,9)}`, ...f, uploadedAt: new Date().toISOString() }));
+
+      // Read optional metadata fields from the request body (multer will populate req.body for text fields)
+      const bodyAlbumId = req.body && req.body.albumId ? req.body.albumId : undefined;
+      const bodyUploadedBy = req.body && req.body.uploadedBy ? req.body.uploadedBy : undefined;
+      const bodyUploadedAt = req.body && req.body.uploadedAt ? req.body.uploadedAt : undefined;
+      const bodyTaggedUsers = req.body && req.body.taggedUsers ? (() => {
+        try { return JSON.parse(req.body.taggedUsers); } catch (e) { return undefined; }
+      })() : undefined;
+
+      const toPush = files.map(f => ({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2,9)}`,
+        filename: f.filename || f.filename,
+        url: f.url,
+        type: f.type,
+        albumId: bodyAlbumId,
+        uploadedBy: bodyUploadedBy,
+        taggedUsers: bodyTaggedUsers || [],
+        uploadedAt: bodyUploadedAt || new Date().toISOString()
+      }));
+
       fs.writeFileSync(MEDIA_JSON, JSON.stringify([...toPush, ...current], null, 2));
     } catch (e) {
       console.error('Failed to write media.json', e);
