@@ -21,9 +21,31 @@ Write-Host "Fetching media list from: $api"
 try {
     $resp = Invoke-RestMethod -Uri $api -Method Get -ErrorAction Stop
 } catch {
-    Write-Error "Failed to fetch media list: $_"
-    exit 2
+    Write-Warning ("Failed to fetch media list: {0}" -f $_)
+    $resp = $null
 }
+
+# Helper to fetch metadata endpoints (albums, users, stories, events, music)
+function Save-Metadata($endpointPath, $outputFile) {
+    $url = "$($BaseUrl.TrimEnd('/'))/$endpointPath"
+    Write-Host "Fetching metadata from: $url"
+    try {
+        $data = Invoke-RestMethod -Uri $url -Method Get -ErrorAction Stop
+        $json = $data | ConvertTo-Json -Depth 10
+        $outPath = Join-Path $OutDir $outputFile
+        Write-Host "Saving metadata to: $outPath"
+        $json | Out-File -FilePath $outPath -Encoding UTF8
+    } catch {
+        Write-Warning ("Failed to fetch or save {0}: {1}" -f $endpointPath, $_)
+    }
+}
+
+# Save common metadata files if endpoints exist
+Save-Metadata 'api/albums' 'albums.json'
+Save-Metadata 'api/users' 'users.json'
+Save-Metadata 'api/stories' 'stories.json'
+Save-Metadata 'api/events' 'events.json'
+Save-Metadata 'api/music' 'music.json'
 
 if (-not $resp.media) { Write-Host "No media items found."; exit 0 }
 

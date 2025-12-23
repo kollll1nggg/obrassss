@@ -15,6 +15,11 @@ const PHOTOS_DIR = path.join(DATA_DIR, 'photos');
 const VIDEOS_DIR = path.join(DATA_DIR, 'videos');
 const OTHERS_DIR = path.join(DATA_DIR, 'others');
 const MEDIA_JSON = path.join(DATA_DIR, 'media.json');
+const ALBUMS_JSON = path.join(DATA_DIR, 'albums.json');
+const USERS_JSON = path.join(DATA_DIR, 'users.json');
+const STORIES_JSON = path.join(DATA_DIR, 'stories.json');
+const EVENTS_JSON = path.join(DATA_DIR, 'events.json');
+const MUSIC_JSON = path.join(DATA_DIR, 'music.json');
 
 function ensureDir(d) {
   if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
@@ -25,6 +30,32 @@ ensureDir(VIDEOS_DIR);
 ensureDir(OTHERS_DIR);
 
 if (!fs.existsSync(MEDIA_JSON)) fs.writeFileSync(MEDIA_JSON, JSON.stringify([]));
+if (!fs.existsSync(ALBUMS_JSON)) fs.writeFileSync(ALBUMS_JSON, JSON.stringify([]));
+if (!fs.existsSync(USERS_JSON)) fs.writeFileSync(USERS_JSON, JSON.stringify([]));
+if (!fs.existsSync(STORIES_JSON)) fs.writeFileSync(STORIES_JSON, JSON.stringify([]));
+if (!fs.existsSync(EVENTS_JSON)) fs.writeFileSync(EVENTS_JSON, JSON.stringify([]));
+if (!fs.existsSync(MUSIC_JSON)) fs.writeFileSync(MUSIC_JSON, JSON.stringify([]));
+
+// Helpers to read/write JSON metadata atomically
+function readJson(p) {
+  try {
+    const raw = fs.readFileSync(p, 'utf-8') || '[]';
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error('Failed to read JSON', p, e);
+    return [];
+  }
+}
+
+function writeJson(p, data) {
+  try {
+    fs.writeFileSync(p, JSON.stringify(data, null, 2));
+    return true;
+  } catch (e) {
+    console.error('Failed to write JSON', p, e);
+    return false;
+  }
+}
 
 // S3 configuration (optional). If these env vars are present we upload to S3 instead of disk.
 const S3_BUCKET = process.env.S3_BUCKET;
@@ -191,6 +222,186 @@ app.get('/api/media/list', (req, res) => {
     res.json({ media: current });
   } catch (e) {
     res.status(500).json({ error: 'Failed to read media metadata' });
+  }
+});
+
+// --- Albums, Users, Stories, Events, Music persistence endpoints ---
+
+app.get('/api/albums', (req, res) => {
+  try {
+    const albums = readJson(ALBUMS_JSON);
+    const media = readJson(MEDIA_JSON);
+    // attach photos for each album
+    const enriched = albums.map(a => ({
+      ...a,
+      photos: media.filter(m => m.albumId === a.id).sort((p1, p2) => new Date(p2.uploadedAt).getTime() - new Date(p1.uploadedAt).getTime())
+    }));
+    res.json({ albums: enriched });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to read albums' });
+  }
+});
+
+app.get('/api/albums/:id', (req, res) => {
+  try {
+    const albums = readJson(ALBUMS_JSON);
+    const media = readJson(MEDIA_JSON);
+    const album = albums.find(a => a.id === req.params.id);
+    if (!album) return res.status(404).json({ error: 'Album not found' });
+    const photos = media.filter(m => m.albumId === album.id).sort((a,b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
+    res.json({ album: { ...album, photos } });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to read album' });
+  }
+});
+
+app.post('/api/albums', express.json(), (req, res) => {
+  try {
+    const { title, description, permission, isEventAlbum, createdBy } = req.body || {};
+    if (!title) return res.status(400).json({ error: 'title required' });
+    const albums = readJson(ALBUMS_JSON);
+    const newAlbum = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2,9)}`,
+      title,
+      description: description || '',
+      isEventAlbum: !!isEventAlbum,
+      createdBy: createdBy || 'server',
+      createdAt: new Date().toISOString(),
+      permission: permission || 'MEMBER',
+      visibleTo: [],
+      taggedUsers: []
+    };
+    albums.unshift(newAlbum);
+    writeJson(ALBUMS_JSON, albums);
+    res.json({ album: newAlbum });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to create album' });
+  }
+});
+
+// Users
+app.get('/api/users', (req, res) => {
+  try {
+    const users = readJson(USERS_JSON);
+    res.json({ users });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to read users' });
+  }
+});
+
+app.post('/api/register', express.json(), (req, res) => {
+  try {
+    const { name, pass } = req.body || {};
+    if (!name) return res.status(400).json({ error: 'name required' });
+    const users = readJson(USERS_JSON);
+    if (users.some(u => u.name && u.name.toLowerCase() === name.toLowerCase())) return res.status(400).json({ error: 'user exists' });
+    const newUser = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2,9)}`,
+      name,
+      email: `${name.toLowerCase().replace(/\s/g, '.')}@obras.com`,
+      avatar: `https://i.pravatar.cc/150?u=${Date.now()}`,
+      role: 'READER',
+      status: 'PENDING',
+      createdAt: new Date().toISOString()
+    };
+    users.unshift(newUser);
+    writeJson(USERS_JSON, users);
+    res.json({ user: newUser });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to register user' });
+  }
+});
+
+app.put('/api/users/:id', express.json(), (req, res) => {
+  try {
+    const users = readJson(USERS_JSON);
+    const idx = users.findIndex(u => u.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: 'user not found' });
+    users[idx] = { ...users[idx], ...req.body };
+    writeJson(USERS_JSON, users);
+    res.json({ user: users[idx] });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update user' });
+  }
+});
+
+// Stories
+app.get('/api/stories', (req, res) => {
+  try {
+    const stories = readJson(STORIES_JSON);
+    res.json({ stories });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to read stories' });
+  }
+});
+
+app.post('/api/stories', express.json(), (req, res) => {
+  try {
+    const { userId, fileUrl, type } = req.body || {};
+    if (!userId || !fileUrl) return res.status(400).json({ error: 'userId and fileUrl required' });
+    const stories = readJson(STORIES_JSON);
+    const now = new Date();
+    const newStory = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2,9)}`,
+      userId,
+      filePath: fileUrl,
+      type: type || (fileUrl && /\.(mp4|webm|ogg|mov)$/i.test(fileUrl) ? 'video' : 'image'),
+      createdAt: now.toISOString(),
+      expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString()
+    };
+    stories.unshift(newStory);
+    writeJson(STORIES_JSON, stories);
+    res.json({ story: newStory });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to create story' });
+  }
+});
+
+// Events
+app.get('/api/events', (req, res) => {
+  try {
+    const events = readJson(EVENTS_JSON);
+    res.json({ events });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to read events' });
+  }
+});
+
+app.post('/api/events', express.json(), (req, res) => {
+  try {
+    const { title, location, date, albumId } = req.body || {};
+    if (!title || !date) return res.status(400).json({ error: 'title and date required' });
+    const events = readJson(EVENTS_JSON);
+    const newEvent = { id: `${Date.now()}-${Math.random().toString(36).slice(2,9)}`, title, location: location || '', date, albumId };
+    events.unshift(newEvent);
+    writeJson(EVENTS_JSON, events);
+    res.json({ event: newEvent });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to create event' });
+  }
+});
+
+// Music metadata (uploads handled by /api/upload/music)
+app.get('/api/music', (req, res) => {
+  try {
+    const music = readJson(MUSIC_JSON);
+    res.json({ music });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to read music' });
+  }
+});
+
+app.post('/api/music', express.json(), (req, res) => {
+  try {
+    const { title, artist, url, duration } = req.body || {};
+    if (!title || !url) return res.status(400).json({ error: 'title and url required' });
+    const music = readJson(MUSIC_JSON);
+    const newTrack = { id: `${Date.now()}-${Math.random().toString(36).slice(2,9)}`, title, artist: artist || 'Desconhecido', url, duration: duration || 0 };
+    music.unshift(newTrack);
+    writeJson(MUSIC_JSON, music);
+    res.json({ track: newTrack });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to create music track' });
   }
 });
 

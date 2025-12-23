@@ -52,6 +52,27 @@ export const login = async (name: string, pass: string): Promise<User | null> =>
 };
 
 export const registerUser = async (name: string, pass: string): Promise<{ success: boolean; message: string; }> => {
+    // Try to register the user on the backend; fall back to in-memory mock
+    try {
+        if (API_BASE) {
+            const resp = await fetch(`${API_BASE.replace(/\/api$/, '')}/api/register` , {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, pass }),
+            });
+            if (!resp.ok) {
+                const body = await resp.json().catch(() => ({}));
+                return { success: false, message: body.error || 'Registro falhou no servidor' };
+            }
+            const data = await resp.json();
+            const created = data.user;
+            users.unshift(created as unknown as User);
+            return { success: true, message: 'Usuário registrado com sucesso.' };
+        }
+    } catch (e) {
+        // ignore and fall back
+    }
+
     if (users.some(u => u.name.toLowerCase() === name.toLowerCase())) {
         return { success: false, message: 'Nome de usuário já existe.' };
     }
@@ -69,6 +90,17 @@ export const registerUser = async (name: string, pass: string): Promise<{ succes
 
 // --- Users ---
 export const getMockUsers = async (): Promise<User[]> => {
+    try {
+        if (API_BASE) {
+            const resp = await fetch(`${API_BASE.replace(/\/api$/, '')}/api/users`);
+            if (resp.ok) {
+                const data = await resp.json();
+                users = data.users as User[];
+            }
+        }
+    } catch (e) {
+        // ignore
+    }
     return [...users];
 };
 
@@ -142,6 +174,19 @@ export const getMediaForFeed = async (currentUser: User | null): Promise<MediaIt
 
 
 export const getAllVisibleAlbums = async (currentUser: User | null): Promise<Album[]> => {
+    // Try to fetch persisted albums from backend when available
+    try {
+        if (API_BASE) {
+            const resp = await fetch(`${API_BASE}/albums`);
+            if (resp.ok) {
+                const data = await resp.json();
+                // replace local albums with persisted set
+                albums = (data.albums || []).map((a: any) => ({ ...a }));
+            }
+        }
+    } catch (e) {
+        // ignore and use in-memory
+    }
     return albums.filter(album => canView(currentUser, album))
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 };
@@ -231,6 +276,27 @@ export const deleteMediaItem = async (mediaId: string, albumId?: string | undefi
 };
 
 export const createAlbum = async (albumData: { title: string; description: string; permission: Role, isEventAlbum?: boolean }, createdBy: User): Promise<Album> => {
+    const payload = {
+        title: albumData.title,
+        description: albumData.description,
+        permission: albumData.permission,
+        isEventAlbum: albumData.isEventAlbum || false,
+        createdBy: createdBy.id
+    };
+    try {
+        if (API_BASE) {
+            const resp = await fetch(`${API_BASE}/albums`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if (resp.ok) {
+                const data = await resp.json();
+                const newAlbum = data.album as Album;
+                albums.unshift(newAlbum);
+                return newAlbum;
+            }
+        }
+    } catch (e) {
+        // ignore and create locally
+    }
+
     const newAlbum: Album = {
         id: generateId('album'),
         title: albumData.title,
@@ -250,6 +316,18 @@ export const createAlbum = async (albumData: { title: string; description: strin
 
 // --- Stories ---
 export const getStories = async (): Promise<Story[]> => {
+    // Try to read persisted stories
+    try {
+        if (API_BASE) {
+            const resp = await fetch(`${API_BASE}/stories`);
+            if (resp.ok) {
+                const data = await resp.json();
+                stories = (data.stories || []).map((s: any) => ({ ...s }));
+            }
+        }
+    } catch (e) {
+        // ignore
+    }
     const now = new Date();
     return stories.filter(s => new Date(s.expiresAt) > now);
 };
@@ -272,6 +350,14 @@ export const addStory = async (userId: string, file: File): Promise<Story> => {
             createdAt: now.toISOString(),
             expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
         };
+        // Persist the story metadata on the backend if available
+        try {
+            if (API_BASE) {
+                await fetch(`${API_BASE}/stories`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, fileUrl: newStory.filePath, type: newStory.type }) });
+            }
+        } catch (e) {
+            // ignore
+        }
         stories.unshift(newStory);
         return newStory;
     } catch (e) {
@@ -290,6 +376,17 @@ export const addStory = async (userId: string, file: File): Promise<Story> => {
 
 // --- Events ---
 export const getEvents = async (): Promise<EventItem[]> => {
+    try {
+        if (API_BASE) {
+            const resp = await fetch(`${API_BASE}/events`);
+            if (resp.ok) {
+                const data = await resp.json();
+                events = (data.events || []).map((e: any) => ({ ...e }));
+            }
+        }
+    } catch (e) {
+        // ignore
+    }
     return [...events].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 };
 
@@ -318,6 +415,19 @@ export const createEvent = async (
         date: eventData.date,
         albumId: finalAlbumId,
     };
+    // persist on backend if available
+    try {
+        if (API_BASE) {
+            const resp = await fetch(`${API_BASE}/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newEvent) });
+            if (resp.ok) {
+                const data = await resp.json();
+                events.unshift(data.event);
+                return data.event;
+            }
+        }
+    } catch (e) {
+        // ignore
+    }
     events.unshift(newEvent);
     return newEvent;
 };
@@ -357,6 +467,17 @@ export const getAllAlbumlessMediaForAdmin = async (): Promise<MediaItem[]> => {
 
 // --- Music ---
 export const getMusicTracks = async (): Promise<MusicTrack[]> => {
+    try {
+        if (API_BASE) {
+            const resp = await fetch(`${API_BASE}/music`);
+            if (resp.ok) {
+                const data = await resp.json();
+                musicTracks = (data.music || []).map((m: any) => ({ ...m }));
+            }
+        }
+    } catch (e) {
+        // ignore
+    }
     return [...musicTracks];
 };
 
@@ -375,6 +496,14 @@ export const addMusicTrack = async (file: File): Promise<MusicTrack> => {
             duration: data.file.duration || 0,
             hotcues: [],
         };
+        // persist metadata on backend
+        try {
+            if (API_BASE) {
+                await fetch(`${API_BASE}/music`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newTrack) });
+            }
+        } catch (e) {
+            // ignore
+        }
         musicTracks.push(newTrack);
         return newTrack;
     } catch (e) {
