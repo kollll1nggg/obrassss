@@ -9,6 +9,16 @@ const DATA_DIR = path.join(process.cwd(), 'dados');
 function readJsonSafe(p) {
   try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch(e) { return null; }
 }
+// helper that strips BOM and parses JSON safely
+function readJsonSafeStripBOM(p) {
+  try {
+    let raw = fs.readFileSync(p, 'utf8');
+    raw = raw.replace(/^\uFEFF/, '');
+    return JSON.parse(raw);
+  } catch (e) {
+    return null;
+  }
+}
 
 async function createAlbumIfNotExists(album) {
   try {
@@ -49,8 +59,8 @@ async function uploadFile(localPath, albumId) {
 
 (async function main() {
   console.log('Base URL:', BASE_URL);
-  const media = readJsonSafe(path.join(DATA_DIR, 'media.json')) || [];
-  const albumsObj = readJsonSafe(path.join(DATA_DIR, 'albums.json')) || { albums: [] };
+  const media = readJsonSafeStripBOM(path.join(DATA_DIR, 'media.json')) || [];
+  const albumsObj = readJsonSafeStripBOM(path.join(DATA_DIR, 'albums.json')) || { albums: [] };
   const albums = Array.isArray(albumsObj) ? albumsObj : (albumsObj.albums || []);
 
   const albumMap = {};
