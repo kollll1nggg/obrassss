@@ -40,15 +40,15 @@ async function createAlbumIfNotExists(album) {
   }
 }
 
-async function uploadFile(localPath, albumId) {
+async function uploadFile(localPath, albumId, meta) {
   if (!fs.existsSync(localPath)) return { ok: false, error: 'file-missing' };
   const form = new FormData();
   form.append('files', fs.createReadStream(localPath));
   if (albumId) form.append('albumId', albumId);
   // preserve original metadata if present
-  if (m && m.uploadedAt) form.append('uploadedAt', m.uploadedAt);
-  if (m && m.uploadedBy) form.append('uploadedBy', m.uploadedBy);
-  if (m && m.taggedUsers) form.append('taggedUsers', JSON.stringify(m.taggedUsers));
+  if (meta && meta.uploadedAt) form.append('uploadedAt', meta.uploadedAt);
+  if (meta && meta.uploadedBy) form.append('uploadedBy', meta.uploadedBy);
+  if (meta && meta.taggedUsers) form.append('taggedUsers', JSON.stringify(meta.taggedUsers));
 
   try {
     const resp = await fetch(`${BASE_URL}/api/upload/media`, { method: 'POST', body: form });
@@ -85,7 +85,7 @@ async function uploadFile(localPath, albumId) {
       const p = path.join(DATA_DIR, d, targetFile);
       if (fs.existsSync(p)) {
         console.log('Uploading target file', p);
-        const res = await uploadFile(p, undefined);
+        const res = await uploadFile(p, undefined, null);
         if (res.ok) console.log('Uploaded target file', res.body);
         else console.warn('Failed target upload', res);
         found = true;
@@ -102,7 +102,7 @@ async function uploadFile(localPath, albumId) {
     const origAlbumId = m.albumId;
     const mappedAlbumId = origAlbumId && albumMap[origAlbumId] ? albumMap[origAlbumId] : undefined;
     console.log('Uploading', filename, 'album:', mappedAlbumId || '(none)');
-    const res = await uploadFile(localPath, mappedAlbumId);
+  const res = await uploadFile(localPath, mappedAlbumId, m);
     if (res.ok) {
       report.uploaded.push({ filename, url: res.body.files ? res.body.files.map(f => f.url) : res.body });
       console.log('Uploaded', filename, '->', res.body && res.body.files ? res.body.files.map(f=>f.url).join(', ') : JSON.stringify(res.body));

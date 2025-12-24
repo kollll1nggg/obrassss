@@ -1,5 +1,51 @@
 ﻿{
     "albums":  [
+                   {
+                       "id":  "1766560152394-4kkp4ec",
+                       "title":  "testetet",
+                       "description":  "Álbum para o evento \"testetet\"",
+                       "isEventAlbum":  true,
+                       "createdBy":  "user-1",
+                       "createdAt":  "2025-12-24T07:09:12.394Z",
+                       "permission":  "MEMBER",
+                       "visibleTo":  [
 
+                                     ],
+                       "taggedUsers":  [
+
+                                       ],
+                       "photos":  [
+
+                                  ]
+                   },
+                   {
+                       "id":  "1766559817085-p2v7fu9",
+                       "title":  "teste",
+                       "description":  "",
+                       "isEventAlbum":  false,
+                       "createdBy":  "user-1",
+                       "createdAt":  "2025-12-24T07:03:37.085Z",
+                       "permission":  "MEMBER",
+                       "visibleTo":  [
+
+                                     ],
+                       "taggedUsers":  [
+
+                                       ],
+                       "photos":  [
+                                      {
+                                          "id":  "1766559817985-cfvlouv",
+                                          "filename":  "1766559817243-IMG-20250923-WA0264.jpg",
+                                          "url":  "/uploads/photos/1766559817243-IMG-20250923-WA0264.jpg",
+                                          "type":  "image",
+                                          "albumId":  "1766559817085-p2v7fu9",
+                                          "uploadedBy":  "user-1",
+                                          "taggedUsers":  [
+
+                                                          ],
+                                          "uploadedAt":  "2025-12-24T07:03:37.986Z"
+                                      }
+                                  ]
+                   }
                ]
 }

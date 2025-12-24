@@ -43,8 +43,16 @@ const canView = (user: User | null, album: Album): boolean => {
 }
 
 // --- Auth ---
-export const login = async (name: string, pass: string): Promise<User | null> => {
-    const user = users.find(u => u.name.toLowerCase() === name.toLowerCase());
+export const login = async (identifier: string, pass: string): Promise<User | null> => {
+    // Refresh users from backend to pick up recent approval changes
+    try {
+        await getMockUsers();
+    } catch (e) {
+        // ignore
+    }
+
+    const idLower = (identifier || '').toLowerCase();
+    const user = users.find(u => (u.name && u.name.toLowerCase() === idLower) || (u.email && u.email.toLowerCase() === idLower));
     if (user && user.status === 'APPROVED') {
         return user;
     }

@@ -1,0 +1,12 @@
+{
+  "uploaded": [],
+  "errors": [
+    {
+      "filename": "1762551232068-IMG-20250104-WA0005.jpg",
+      "error": {
+        "ok": false,
+        "error": "file-missing"
+      }
+    }
+  ]
+}

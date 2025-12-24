@@ -1,5 +1,11 @@
 ﻿{
     "events":  [
-
+                   {
+                       "id":  "1766560152534-9hwh7q2",
+                       "title":  "testetet",
+                       "location":  "asdasd",
+                       "date":  "2025-12-24T10:09:00.000Z",
+                       "albumId":  "1766560152394-4kkp4ec"
+                   }
                ]
 }
