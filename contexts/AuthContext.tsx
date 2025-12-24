@@ -1,5 +1,5 @@
 
-import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
 import { User, Role } from '../types';
 import { login as apiLogin, getMockUsers } from '../services/api';
 
@@ -21,6 +21,33 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return null;
     }
   });
+
+  // On mount, refresh the stored user from the backend so role/status changes
+  // (made by admin) take effect without requiring the user to log out/in.
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        // Ensure the service has the latest users cached
+        await getMockUsers();
+        const stored = localStorage.getItem('user');
+        if (!stored) return;
+        const parsed: User = JSON.parse(stored);
+        if (!parsed || !parsed.id) return;
+
+        // find the refreshed version from the service cache
+        const refreshedList = await getMockUsers();
+        const refreshed = refreshedList.find(u => u.id === parsed.id) || null;
+        if (mounted && refreshed) {
+          localStorage.setItem('user', JSON.stringify(refreshed));
+          setUser(refreshed);
+        }
+      } catch (e) {
+        // ignore network errors; keep stored user
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const login = useCallback(async (name: string, pass: string): Promise<boolean> => {
     try {
