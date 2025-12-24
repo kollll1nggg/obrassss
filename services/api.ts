@@ -116,6 +116,20 @@ export const updateUser = async (userId: string, updates: Partial<User>): Promis
     const userIndex = users.findIndex(u => u.id === userId);
     if (userIndex === -1) return null;
     
+    // Try to persist update to backend when available
+    try {
+        if (API_BASE) {
+            const resp = await fetch(`${API_BASE}/users/${userId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) });
+            if (resp.ok) {
+                const data = await resp.json();
+                users[userIndex] = { ...users[userIndex], ...(data.user || {}) };
+                return users[userIndex];
+            }
+        }
+    } catch (e) {
+        // ignore and fall back to local update
+    }
+
     users[userIndex] = { ...users[userIndex], ...updates };
     return users[userIndex];
 };
@@ -123,7 +137,19 @@ export const updateUser = async (userId: string, updates: Partial<User>): Promis
 export const deleteUser = async (userId: string): Promise<boolean> => {
     const userToDelete = users.find(u => u.id === userId);
     if (userToDelete?.role === Role.ADMIN_MASTER) return false; 
-    
+    // Prefer to mark as REJECTED in the backend if available
+    try {
+        if (API_BASE) {
+            const resp = await fetch(`${API_BASE}/users/${userId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'REJECTED' }) });
+            if (resp.ok) {
+                // update local cache
+                users = users.filter(u => u.id !== userId);
+                return true;
+            }
+        }
+    } catch (e) {
+        // ignore and fall back to local deletion
+    }
     const initialLength = users.length;
     users = users.filter(u => u.id !== userId);
     return users.length < initialLength;
