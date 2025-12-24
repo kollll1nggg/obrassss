@@ -1,16 +1,22 @@
 ﻿{
     "albums":  [
                    {
-                       "id": "test-album-1",
-                       "title": "Album de teste",
-                       "description": "Álbum criado para teste de deploy",
-                       "isEventAlbum": false,
-                       "createdBy": "test-user-1",
-                       "createdAt": "2025-12-24T12:00:00.000Z",
-                       "permission": "MEMBER",
-                       "visibleTo": [],
-                       "taggedUsers": [],
-                       "photos": []
+                       "id":  "1766562285698-3ikcsn8",
+                       "title":  "Album teste (API)",
+                       "description":  "Criado via script para verifica��o",
+                       "isEventAlbum":  false,
+                       "createdBy":  "1766562284669-o4drqml",
+                       "createdAt":  "2025-12-24T07:44:45.698Z",
+                       "permission":  "MEMBER",
+                       "visibleTo":  [
+
+                                     ],
+                       "taggedUsers":  [
+
+                                       ],
+                       "photos":  [
+
+                                  ]
                    }
                ]
 }

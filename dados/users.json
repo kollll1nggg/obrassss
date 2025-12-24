@@ -1,5 +1,13 @@
 ﻿{
     "users":  [
-
+                  {
+                      "id":  "1766562284669-o4drqml",
+                      "name":  "testuser",
+                      "email":  "testuser@obras.com",
+                      "avatar":  "https://i.pravatar.cc/150?u=1766562284669",
+                      "role":  "MEMBER",
+                      "status":  "APPROVED",
+                      "createdAt":  "2025-12-24T07:44:44.669Z"
+                  }
               ]
 }

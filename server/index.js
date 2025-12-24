@@ -39,7 +39,9 @@ if (!fs.existsSync(MUSIC_JSON)) fs.writeFileSync(MUSIC_JSON, JSON.stringify([]))
 // Helpers to read/write JSON metadata atomically
 function readJson(p) {
   try {
-    const raw = fs.readFileSync(p, 'utf-8') || '[]';
+    let raw = fs.readFileSync(p, 'utf-8') || '[]';
+    // Strip UTF-8 BOM if present (prevents JSON.parse errors when files are saved with BOM)
+    if (raw.charCodeAt(0) === 0xFEFF) raw = raw.slice(1);
     return JSON.parse(raw);
   } catch (e) {
     console.error('Failed to read JSON', p, e);
