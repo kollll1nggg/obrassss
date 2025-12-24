@@ -1,0 +1,13 @@
+﻿{
+    "users":  [
+                  {
+                      "id":  "1766559516330-wdm63t0",
+                      "name":  "admin2",
+                      "email":  "admin2@obras.com",
+                      "avatar":  "https://i.pravatar.cc/150?u=1766559516330",
+                      "role":  "READER",
+                      "status":  "APPROVED",
+                      "createdAt":  "2025-12-24T06:58:36.330Z"
+                  }
+              ]
+}

@@ -1,9 +1,14 @@
 /dados/*
 !/dados/.gitkeep
-!/dados/photos/.gitkeep
-!/dados/videos/.gitkeep
-!/dados/others/.gitkeep
 !/dados/media.json
+!/dados/albums.json
+!/dados/users.json
+!/dados/stories.json
+!/dados/events.json
+!/dados/music.json
+!dados/photos/**
+!dados/videos/**
+!dados/others/**
 
 node_modules/
 dist/
