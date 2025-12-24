@@ -1,22 +1,5 @@
 ﻿{
     "users":  [
-                  {
-                      "id":  "1766560264650-a6xiyui",
-                      "name":  "automated_test_user",
-                      "email":  "automated_test_user@obras.com",
-                      "avatar":  "https://i.pravatar.cc/150?u=1766560264650",
-                      "role":  "READER",
-                      "status":  "APPROVED",
-                      "createdAt":  "2025-12-24T07:11:04.650Z"
-                  },
-                  {
-                      "id":  "1766560219644-3nicq73",
-                      "name":  "obras",
-                      "email":  "obras@obras.com",
-                      "avatar":  "https://i.pravatar.cc/150?u=1766560219644",
-                      "role":  "READER",
-                      "status":  "APPROVED",
-                      "createdAt":  "2025-12-24T07:10:19.644Z"
-                  }
+
               ]
 }
