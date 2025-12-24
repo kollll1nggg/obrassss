@@ -30,6 +30,23 @@ async function createAlbumIfNotExists(album) {
     if (!resp.ok) {
       const txt = await resp.text();
       console.warn('Failed to create album', album.title, resp.status, txt);
+      // Try a sanitized fallback (strip non-ascii from title) before giving up
+      try {
+        const safeTitle = (album.title || '').replace(/[^\x20-\x7E]/g, '');
+        if (safeTitle && safeTitle !== (album.title || '')) {
+          const retry = await fetch(`${BASE_URL}/api/albums`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: safeTitle, description: album.description || '', permission: album.permission || 'MEMBER', isEventAlbum: album.isEventAlbum || false, createdBy: album.createdBy || 'script' })
+          });
+          if (retry.ok) {
+            const dd = await retry.json();
+            return dd.album && dd.album.id ? dd.album.id : null;
+          }
+        }
+      } catch (e) {
+        console.warn('Retry creating album failed', e && e.message ? e.message : e);
+      }
       return null;
     }
     const data = await resp.json();
