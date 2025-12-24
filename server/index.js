@@ -237,9 +237,10 @@ app.post('/api/upload/music', upload.single('file'), async (req, res) => {
 
 app.get('/api/media/list', (req, res) => {
   try {
-    const current = JSON.parse(fs.readFileSync(MEDIA_JSON, 'utf-8') || '[]');
+    const current = readJson(MEDIA_JSON) || [];
     res.json({ media: current });
   } catch (e) {
+    console.error('Error in /api/media/list', e && e.message ? e.message : e);
     res.status(500).json({ error: 'Failed to read media metadata' });
   }
 });
